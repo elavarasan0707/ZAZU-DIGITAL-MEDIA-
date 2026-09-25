@@ -185,19 +185,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsAuthModalOpen(false);
       return u;
     } catch (err: any) {
-      console.warn('Google sign-in popup notice:', err);
-      // If popup was blocked or iframe restriction occurs in development sandbox:
-      // Provide fallback Google login simulation
-      const fallbackGoogleUser: AuthUser = {
-        uid: 'google-user-' + Math.random().toString(36).substring(2, 9),
-        email: 'user@gmail.com',
-        displayName: 'Google User',
-        isAdmin: false
-      };
-      setUser(fallbackGoogleUser);
-      localStorage.setItem('zazu_auth_user', JSON.stringify(fallbackGoogleUser));
-      setIsAuthModalOpen(false);
-      return fallbackGoogleUser;
+      console.error('Firebase Google sign-in error:', err);
+      throw err;
     }
   };
 

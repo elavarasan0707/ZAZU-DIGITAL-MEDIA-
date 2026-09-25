@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { X, Lock, Mail, ShieldAlert, CheckCircle2, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import { X, Lock, Mail, ShieldAlert, CheckCircle2, ArrowRight, Eye, EyeOff, Copy, Check, ExternalLink } from 'lucide-react';
 
 export const AuthModal: React.FC = () => {
   const {
@@ -19,6 +19,8 @@ export const AuthModal: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [unauthorizedDomain, setUnauthorizedDomain] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   if (!isAuthModalOpen) return null;
 
@@ -26,6 +28,7 @@ export const AuthModal: React.FC = () => {
     e.preventDefault();
     setErrorMsg('');
     setSuccessMsg('');
+    setUnauthorizedDomain(null);
     setLoading(true);
 
     try {
@@ -56,6 +59,8 @@ export const AuthModal: React.FC = () => {
 
   const handleGoogleSignIn = async () => {
     setErrorMsg('');
+    setSuccessMsg('');
+    setUnauthorizedDomain(null);
     setLoading(true);
     try {
       await loginWithGoogle();
@@ -64,9 +69,28 @@ export const AuthModal: React.FC = () => {
         closeAuthModal();
       }, 700);
     } catch (err: any) {
-      setErrorMsg(err.message || 'Google sign in failed.');
+      console.error('Google sign in error:', err);
+      const host = window.location.hostname;
+      if (err.code === 'auth/unauthorized-domain' || (err.message && err.message.includes('unauthorized-domain'))) {
+        setUnauthorizedDomain(host);
+        setErrorMsg(`Unauthorized Domain: "${host}" is not added in Firebase Authorised domains yet.`);
+      } else if (err.code === 'auth/popup-blocked') {
+        setErrorMsg('Popup was blocked by your browser. Please allow popups or test in a separate window.');
+      } else if (err.code === 'auth/popup-closed-by-user') {
+        setErrorMsg('Sign-in cancelled: The Google popup was closed before completion.');
+      } else {
+        setErrorMsg(err.message || 'Google sign-in failed. Please verify your connection.');
+      }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCopyDomain = () => {
+    if (unauthorizedDomain) {
+      navigator.clipboard.writeText(unauthorizedDomain);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
     }
   };
 
@@ -164,6 +188,31 @@ export const AuthModal: React.FC = () => {
           <div className="mb-4 p-3 rounded-xl bg-red-950/40 border border-red-500/40 text-red-300 text-xs flex items-center gap-2">
             <ShieldAlert className="w-4 h-4 shrink-0" />
             <span>{errorMsg}</span>
+          </div>
+        )}
+
+        {unauthorizedDomain && (
+          <div className="mb-4 p-3.5 rounded-xl bg-[#1A1A1A] border border-[#F5C542]/40 text-left space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-[#FFD966]">Firebase Setup Step</span>
+              <button
+                type="button"
+                onClick={handleCopyDomain}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-[#F5C542] text-[#080808] text-[10px] font-bold hover:bg-[#FFD966] transition-colors"
+              >
+                {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                <span>{copied ? 'Copied!' : 'Copy Domain'}</span>
+              </button>
+            </div>
+            <p className="text-[11px] text-[#D4D4D4] leading-relaxed">
+              To allow Google Sign-In, please add your current preview domain to Firebase:
+            </p>
+            <div className="p-2 rounded bg-black border border-white/10 font-mono text-[11px] text-[#FFD966] break-all select-all">
+              {unauthorizedDomain}
+            </div>
+            <p className="text-[10px] text-[#888888] leading-tight">
+              Steps: Open your Firebase Console &rarr; Authentication &rarr; Settings &rarr; Authorised domains &rarr; Click <strong>"Add domain"</strong> &rarr; Paste this domain.
+            </p>
           </div>
         )}
 
